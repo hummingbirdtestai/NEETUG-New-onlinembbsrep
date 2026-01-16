@@ -30,278 +30,81 @@ export default function PracticeScreen() {
     useState<"all" | "bookmarked" | "wrong">("all");
 
 const chaptersBySubject: Record<string, string[]> = {
-  "Anatomy": [
-    "General Anatomy",
-    "Neuroanatomy",
-    "Upper Limb",
-    "Lower Limb",
-    "Thorax",
-    "Head & Neck",
-    "Abdomen",
-    "Pelvis & Perineum",
-    "Histology",
-    "Embryology & Genetics"
+  "Botany Class 11": [
+    "Plant kingdom",
+    "Morphology of flowering plants",
+    "Anatomy of flowering plants",
+    "Photosynthesis in higher Plants",
+    "Respiration in plants",
+    "Plant growth and development"
   ],
 
-  "Physiology": [
-    "General Physiology",
-    "Systemic Physiology",
-    "Basic Sciences Applied to Physiology",
-    "Applied Physiology",
-    "Physiology – Core Concepts"
+  "Botany Class 12": [
+    "Sexual reproduction and flowering plants"
   ],
 
-  "Biochemistry": [
-    "General Biochemistry",
-    "Enzymology",
-    "Carbohydrate Metabolism",
-    "Lipid Metabolism",
-    "Protein & Amino Acid Metabolism",
-    "Molecular Biology",
-    "Nutrition",
-    "Immunology & Cancer Biology",
-    "Clinical Biochemistry",
-    "Integrated / Clinical Correlation"
+  "Zoology Class 11": [
+    "The Living World",
+    "Biological Classification",
+    "Animal kingdom",
+    "Structural organisation in animals",
+    "Cell : The unit of life",
+    "Biomolecules",
+    "Cell cycle and cell division",
+    "Breathing and exchange of gases",
+    "Body fluids and circulation",
+    "Excretory products and their elimination",
+    "Locomotion and movement",
+    "Neural control and coordination",
+    "Chemical coordination and integration"
   ],
 
-  "Microbiology": [
-  "General Microbiology & Immunology",
-  "Central Nervous System Infections",
-  "Respiratory Tract Infections",
-  "Gastrointestinal & Hepatobiliary Infections",
-  "Genitourinary & Sexually Transmitted Infections",
-  "Cardiovascular & Bloodstream Infections",
-  "Skin, Soft Tissue & Musculoskeletal Infections",
-  "Dermatology, Leprosy & Venereology",
-  "Zoonotic & Emerging Infections",
-  "Hospital-Acquired & Surgical Infections",
-  "Dental & Oral Microbiology",
-  "Applied & Integrated Microbiology"
-],
-
-
-  "Pharmacology": [
-    "Clinical Pharmacology",
-    "Experimental Pharmacology",
-    "Basic Sciences Applied to Pharmacology",
-    "Systemic Pharmacology",
-    "Pharmacology – Core Concepts"
+  "Zoology Class 12": [
+    "Human reproduction",
+    "Reproductive health",
+    "Principles of inheritance and variation",
+    "Molecular basis of inheritance",
+    "Evolution",
+    "Human health and disease",
+    "Microbes in human welfare",
+    "Biotechnology principles and processes",
+    "Biotechnology and its applications",
+    "Organism and population",
+    "Ecosystem",
+    "Biodiversity and its conservation"
   ],
 
-  "Pathology": [
-    "General Pathology",
-    "Pathology – Core Concepts",
-    "Clinical Pathology",
-    "Genetic & Pediatric Pathology",
-    "Hematology",
-    "Systemic Pathology",
-    "Applied & Integrated Pathology"
+  "Chemistry Class 11": [
+    "Some basic concepts of chemistry",
+    "Structure of atom",
+    "Classification of elements and periodicity in properties",
+    "Chemical bonding and molecular structure",
+    "Thermodynamics",
+    "Chemical Equilibrium",
+    "Ionic equilibrium",
+    "Redox reactions",
+    "p block elements 1",
+    "Purification and characterization of organic compounds",
+    "Some basic concepts of organic chemistry",
+    "Hydrocarbons"
   ],
 
-  "PSM": [
-    "Introduction to Community Medicine",
-    "Environmental Health",
-    "Health Promotion & Health Education",
-    "Nutrition & Public Health",
-    "Biostatistics & Demography",
-    "Epidemiology",
-    "Family Welfare & RMNCH",
-    "Occupational Health",
-    "Geriatrics & Ageing",
-    "Mental Health",
-    "Health Care Delivery System",
-    "Recent Advances in Community Medicine",
-    "Integrated / Applied Community Medicine"
-  ],
-
-  "Forensic": [
-    "Introduction & General Principles of Forensic Medicine",
-    "Forensic Pathology",
-    "Clinical Forensic Medicine",
-    "Medical Jurisprudence & Ethics",
-    "Forensic Psychiatry",
-    "Forensic Investigations & Laboratory Medicine",
-    "General Toxicology",
-    "Chemical Toxicology",
-    "Pharmaceutical Toxicology",
-    "Biological Toxicology",
-    "Sociomedical Toxicology",
-    "Environmental Toxicology",
-    "Applied & Integrated Forensic Medicine"
-  ],
-
-  "ENT": [
-    "Basic Sciences of ENT",
-    "ENT Clinical Examination & Procedures",
-    "Diseases of Ear, Nose & Throat",
-    "Applied & Integrated ENT"
-  ],
-
-  "Ophthalmology": [
-    "Clinical Examination of the Eye",
-    "Lids, Adnexa & Orbit",
-    "Conjunctiva",
-    "Cornea & Sclera",
-    "Anterior Segment (Iris & Anterior Chamber)",
-    "Lens (Cataract & Related Disorders)",
-    "Retina & Optic Nerve",
-    "Systemic Diseases & Miscellaneous Ophthalmology"
-  ],
-
-  "General Medicine": [
-    "Cardiology",
-    "Respiratory Medicine",
-    "Infectious Diseases",
-    "Gastroenterology & Hepatology",
-    "Rheumatology",
-    "Hematology",
-    "Nephrology",
-    "Endocrinology & Metabolic Disorders",
-    "Oncology",
-    "Neurology",
-    "Toxicology & Emergency Medicine",
-    "Nutrition, Fluids & Electrolytes",
-    "Geriatric Medicine",
-    "Community & Preventive Medicine",
-    "Basic Sciences Integration",
-    "Systemic & Allied Specialties",
-    "Allied Clinical Specialties"
-  ],
-
-  "General Surgery": [
-    "Head & Neck and Oral Surgery",
-    "Principles of Surgery",
-    "Blood Transfusion & Hemostasis",
-    "Surgical Infections & Trauma",
-    "Anaesthesia & Perioperative Care",
-    "Advanced & Specialized Surgery",
-    "Skin & Soft Tissue Surgery",
-    "Endocrine Surgery",
-    "Abdominal & Gastrointestinal Surgery",
-    "Breast Surgery",
-    "Cardiothoracic Surgery",
-    "Vascular Surgery",
-    "Urology & Male Genital Surgery",
-    "Basic Sciences for Surgery",
-    "Allied Clinical Disciplines"
-  ],
-
-  "Obstetrics": [
-    "Community Obstetrics & Public Health",
-    "Basics of Reproduction & Preconception Care",
-    "Medical Disorders Complicating Pregnancy",
-    "Fetal Growth, Placenta & Physiology",
-    "Diagnosis & Early Pregnancy Disorders",
-    "Newborn Care & Lactation",
-    "Antenatal Care & Maternal Adaptation",
-    "Obstetric Hemorrhage",
-    "Multiple & High-Risk Pregnancy",
-    "Labour & Operative Obstetrics",
-    "Pelvis, Fetal Lie & Presentation",
-    "Third Stage & Puerperium",
-    "Imaging & Fetal Monitoring",
-    "Obstetric Skills & Procedures",
-    "Clinical Observation & Case Based Learning"
-  ],
-
-  "Gynecology": [
-    "Applied & Integrated Gynecology",
-    "Anatomy & Development of Female Reproductive System",
-    "Gynecological Oncology & Pathology",
-    "Contraception & Family Planning",
-    "Genital Tract Infections & Vaginal Discharge",
-    "Puberty & Adolescent Gynecology",
-    "Menstrual Disorders",
-    "Genital Injuries & Fistulae",
-    "Reproductive Endocrinology & Infertility",
-    "Benign Disorders of Uterus & Pelvic Floor",
-    "Menopause & Postmenopausal Disorders",
-    "Gynecological Oncology – Adjuvant Therapy"
-  ],
-
-  "Pediatrics": [
-    "Growth, Development & Adolescence",
-    "Pediatrics – Core Concepts",
-    "Pediatric Nutrition",
-    "Pediatric Endocrinology & Metabolism",
-    "Neonatology",
-    "Pediatric Infections & Immunization",
-    "System-wise Pediatrics",
-    "Pediatric Emergencies",
-    "Pediatric Hematology & Oncology",
-    "Applied & Integrated Pediatrics"
-  ],
-
-  "Orthopaedics": [
-    "Traumatology & Fractures",
-    "Amputation & Rehabilitation",
-    "Neurological Conditions with Orthopaedic Relevance",
-    "Orthopaedic Infections",
-    "Congenital & Paediatric Orthopaedics",
-    "Overview of Musculoskeletal System",
-    "Degenerative & Inflammatory Joint Disorders",
-    "Neuro-Orthopaedics",
-    "Metabolic & Neoplastic Bone Diseases",
-    "Integrated & Systemic Orthopaedics",
-    "Orthopaedic Procedures & Patient Care",
-    "Basic Sciences in Orthopaedics"
-  ],
-
-  "Dermatology": [
-    "Acne and Related Disorders",
-    "Pigmentary Disorders",
-    "Papulosquamous Disorders",
-    "Parasitic Infestations",
-    "Fungal Infections of Skin",
-    "Viral Infections of Skin",
-    "Leprosy",
-    "Sexually Transmitted Infections",
-    "Inflammatory Dermatoses",
-    "Vesiculobullous Disorders",
-    "Bacterial Infections of Skin",
-    "Connective Tissue Disorders",
-    "Nutritional and Metabolic Dermatoses",
-    "Systemic Diseases and Skin",
-    "Basic Sciences in Dermatology"
-  ],
-
-  "Psychiatry": [
-    "Psychiatry – Core Concepts",
-    "Introduction & Mental Health",
-    "Major Psychiatric Disorders",
-    "Personality & Sexual Disorders",
-    "Psychiatry Across Age Groups",
-    "Psychiatric Emergencies",
-    "Psychiatric Treatment",
-    "Applied Psychiatry"
-  ],
-
-  "Anaesthesiology": [
-    "Introduction & Patient Safety",
-    "Resuscitation & Emergency Anaesthesia",
-    "Preoperative Assessment & Preparation",
-    "General Anaesthesia",
-    "Regional Anaesthesia",
-    "Post-Anaesthesia Care",
-    "Critical Care & Intensive Care Medicine",
-    "Pain Medicine",
-    "Fluid Therapy & Blood Management",
-    "Applied & Integrated Anaesthesiology"
-  ],
-
-  "Radiodiagnosis": [
-    "Radiation Physics & Safety",
-    "System-wise Radiology"
-  ],
-
-  "Radiotherapy": [
-    "Principles of Radiotherapy",
-    "Radiation Safety",
-    "Radiotherapy Techniques",
-    "Cancer Epidemiology & Prevention",
-    "Applied Radiotherapy"
+  "Chemistry Class 12": [
+    "Solutions",
+    "Electrochemistry",
+    "Chemical kinetics",
+    "p block elements 2",
+    "d-and f-block elements",
+    "coordination compounds",
+    "haloalkanes and haloarenes",
+    "Alcohol phenol and ether",
+    "aldehydes ketone and carboxylic acids",
+    "Organic compounds containing nitrogen",
+    "Biomolecules",
+    "Principles related to practical chemistry"
   ]
 };
+
   
 const initialChapter =
   chaptersBySubject["Anatomy"]?.[0] ?? "";
