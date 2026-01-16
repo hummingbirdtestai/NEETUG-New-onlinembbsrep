@@ -1,0 +1,1151 @@
+//FlashcardFeedDemo.tsx
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Animated,
+  StyleSheet,
+  Dimensions,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Bookmark, Eye, EyeOff, ArrowUp, ArrowDown, Filter } from 'lucide-react-native';
+import { supabase } from '../lib/supabaseClient';
+import Markdown from "react-native-markdown-display";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
+
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const SUBJECTS = [
+  // 1st MBBS
+  { subject: "Anatomy" },
+  { subject: "Physiology" },
+  { subject: "Biochemistry" },
+
+  // 2nd MBBS
+  { subject: "Microbiology" },
+  { subject: "Pharmacology" },
+  { subject: "Pathology" },
+  { subject: "PSM" },
+  { subject: "Forensic" },
+
+  // 3rd MBBS – Part 1
+  { subject: "ENT" },
+  { subject: "Ophthalmology" },
+
+  // 3rd MBBS – Part 2 / Final Year
+  { subject: "General Medicine" },
+  { subject: "General Surgery" },
+  { subject: "Obstetrics" },
+  { subject: "Gynecology" },
+  { subject: "Pediatrics" },
+  { subject: "Orthopaedics" },
+  { subject: "Dermatology" },
+  { subject: "Psychiatry" },
+  { subject: "Anaesthesiology" },
+  { subject: "Radiodiagnosis" },
+  { subject: "Radiotherapy" },
+];
+
+
+
+interface MarkupTextRendererProps {
+  text: string;
+  style?: any;
+}
+
+const MarkupTextRenderer: React.FC<MarkupTextRendererProps> = ({ text, style }) => {
+    const parseMarkup = (input: string) => {
+    const parts: Array<{ text: string; bold?: boolean; italic?: boolean }> = [];
+
+    // Supports *, **, ***, _, __, ___
+    const regex =
+      /\*\*\*(.*?)\*\*\*|\*\*(.*?)\*\*|\*(.*?)\*|___(.*?)___|__(.*?)__|_(.*?)_/g;
+
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(input)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: input.slice(lastIndex, match.index) });
+      }
+
+      if (match[1]) {
+        parts.push({ text: match[1], bold: true, italic: true }); // ***text***
+      } else if (match[2]) {
+        parts.push({ text: match[2], bold: true }); // **text**
+      } else if (match[3]) {
+        parts.push({ text: match[3], italic: true }); // *text*
+      } else if (match[4]) {
+        parts.push({ text: match[4], bold: true, italic: true }); // ___text___
+      } else if (match[5]) {
+        parts.push({ text: match[5], bold: true }); // __text__
+      } else if (match[6]) {
+        parts.push({ text: match[6], italic: true }); // _text_
+      }
+
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < input.length) {
+      parts.push({ text: input.slice(lastIndex) });
+    }
+
+    return parts;
+  };
+  
+  const parts = parseMarkup(text);
+
+  return (
+    <Text style={style}>
+      {parts.map((part, index) => {
+        const partStyle: any = {};
+        if (part.bold) partStyle.fontWeight = 'bold';
+        if (part.italic) partStyle.fontStyle = 'italic';
+
+        return (
+          <Text key={index} style={partStyle}>
+            {part.text}
+          </Text>
+        );
+      })}
+    </Text>
+  );
+};
+
+interface FlashcardCardProps {
+  item: {
+    id: string;
+    Question: string;
+    Answer: string;
+    react_order_final?: number;
+    maximum_value?: number;
+      // ✅ ADD
+  chapter?: string;
+  chapter_order?: number;
+  topic?: string;
+  topic_order?: number;
+  };
+  index: number;
+  subject: string;
+  isBookmarked: boolean;
+  onView: (flashcardId: string, subject: string) => void;
+  onBookmark: (flashcardId: string, subject: string) => void;
+}
+
+const FlashcardCard: React.FC<FlashcardCardProps> = ({
+  item,
+  index,
+  subject,
+  isBookmarked,
+  onView,
+  onBookmark
+}) => {
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [cardHeight, setCardHeight] = useState(200);
+  const flipAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const frontHeightRef = useRef(200);
+  const backHeightRef = useRef(200);
+
+  const isOddCard = index % 2 === 0;
+  const borderColors = isOddCard
+    ? ['#1e3a8a', '#3b82f6', '#60a5fa']
+    : ['#065f46', '#10b981', '#34d399'];
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    shimmerAnim.setValue(0.5);
+  }, []);
+
+  const handleFlip = () => {
+    Animated.spring(flipAnim, {
+      toValue: isFlipped ? 0 : 180,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 8,
+    }).start();
+    if (!isFlipped) {
+      onView(item.id, subject);
+    }
+    setIsFlipped(!isFlipped);
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 3,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 3,
+    }).start();
+  };
+
+  const frontInterpolate = flipAnim.interpolate({
+    inputRange: [0, 180],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  const backInterpolate = flipAnim.interpolate({
+    inputRange: [0, 180],
+    outputRange: ['180deg', '360deg'],
+  });
+
+  const frontOpacity = flipAnim.interpolate({
+    inputRange: [0, 89, 90, 180],
+    outputRange: [1, 1, 0, 0],
+  });
+
+  const backOpacity = flipAnim.interpolate({
+    inputRange: [0, 89, 90, 180],
+    outputRange: [0, 0, 1, 1],
+  });
+
+  const shimmerOpacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
+  const handleFrontLayout = (event: any) => {
+    const { height } = event.nativeEvent.layout;
+    frontHeightRef.current = height;
+    const maxHeight = Math.max(frontHeightRef.current, backHeightRef.current);
+    if (maxHeight > cardHeight) {
+      setCardHeight(maxHeight);
+    }
+  };
+
+  const handleBackLayout = (event: any) => {
+    const { height } = event.nativeEvent.layout;
+    backHeightRef.current = height;
+    const maxHeight = Math.max(frontHeightRef.current, backHeightRef.current);
+    if (maxHeight > cardHeight) {
+      setCardHeight(maxHeight);
+    }
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.cardContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <View style={styles.cardWrapper}>
+        <Animated.View style={[styles.leftBorder, { opacity: shimmerOpacity }]}>
+          <LinearGradient
+            colors={borderColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.leftBorderGradient}
+          />
+        </Animated.View>
+
+        <TouchableWithoutFeedback
+          onPress={handleFlip}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          <View style={[styles.cardTouchable, { height: cardHeight }]}>
+            <Animated.View
+              onLayout={handleFrontLayout}
+              style={[
+                styles.cardFace,
+                styles.cardFront,
+                {
+                  opacity: frontOpacity,
+                  transform: [{ rotateY: frontInterpolate }],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={['#1a1a1a', '#141414', '#0f0f0f']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.cardGradient}
+              >
+                <View style={styles.topShine} />
+
+                <View style={styles.cardHeader}>
+                  <View style={styles.badgeRow}>
+                    <LinearGradient
+                      colors={['#3b82f6', '#2563eb', '#1d4ed8']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.badge}
+                    >
+                      <Text style={styles.badgeLetter}>Q</Text>
+                    </LinearGradient>
+                    <Text style={styles.badgeLabel}>QUESTION</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {item.react_order_final !== undefined && item.maximum_value !== undefined && (
+                      <Text style={styles.progressText}>
+                        {item.react_order_final} / {item.maximum_value}
+                      </Text>
+                    )}
+                    <TouchableOpacity onPress={() => onBookmark(item.id, subject)}>
+                      <Bookmark
+                        size={20}
+                        color="#3b82f6"
+                        strokeWidth={2}
+                        fill={isBookmarked ? '#3b82f6' : 'transparent'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.textBorderContainer}>
+                  <LinearGradient
+                    colors={['rgba(59, 130, 246, 0.3)', 'rgba(16, 185, 129, 0.3)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.textBorder}
+                  >
+                    <View style={styles.textContent}>
+                      {/* 🔵 CBME Chapter */}
+{item.chapter && (
+  <View style={{ marginBottom: 12 }}>
+    <Text style={{ fontSize: 11, color: "#9ca3af", fontWeight: "700" }}>
+      CBME Chapter
+    </Text>
+    <Text style={{ fontSize: 13, color: "#e5e7eb" }}>
+      {item.chapter_order ? `${item.chapter_order}. ` : ""}
+      {item.chapter}
+    </Text>
+  </View>
+)}
+
+                      <Markdown
+                        style={{
+                          text: styles.questionText,
+                          strong: styles.questionText,
+                          em: styles.questionText,
+                        }}
+                      >
+                        {item.Question}
+                      </Markdown>
+                    </View>
+                  </LinearGradient>
+                </View>
+
+                <Text style={styles.tapHint}>Tap to reveal answer</Text>
+              </LinearGradient>
+            </Animated.View>
+
+            <Animated.View
+              onLayout={handleBackLayout}
+              style={[
+                styles.cardFace,
+                styles.cardBack,
+                {
+                  opacity: backOpacity,
+                  transform: [{ rotateY: backInterpolate }],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={['#1a1a1a', '#141414', '#0f0f0f']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.cardGradient}
+              >
+                <View style={styles.topShine} />
+
+                <View style={styles.cardHeader}>
+                  <View style={styles.badgeRow}>
+                    <LinearGradient
+                      colors={['#10b981', '#059669', '#047857']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.badge}
+                    >
+                      <Text style={styles.badgeLetter}>A</Text>
+                    </LinearGradient>
+                    <Text style={styles.badgeLabel}>ANSWER</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {item.react_order_final !== undefined && item.maximum_value !== undefined && (
+                      <Text style={styles.progressText}>
+                        {item.react_order_final} / {item.maximum_value}
+                      </Text>
+                    )}
+                    <TouchableOpacity onPress={() => onBookmark(item.id, subject)}>
+                      <Bookmark
+                        size={20}
+                        color="#10b981"
+                        strokeWidth={2}
+                        fill={isBookmarked ? '#10b981' : 'transparent'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={[styles.textBorderContainer, styles.answerContainer]}>
+                  <LinearGradient
+                    colors={['rgba(16, 185, 129, 0.4)', 'rgba(5, 150, 105, 0.4)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.textBorder}
+                  >
+                    <View style={[styles.textContent, styles.answerBackground]}>
+                      {/* 🟢 CBME Competency */}
+{item.topic && (
+  <View style={{ marginBottom: 12 }}>
+    <Text style={{ fontSize: 11, color: "#9ca3af", fontWeight: "700" }}>
+      Competency
+    </Text>
+    <Text style={{ fontSize: 13, color: "#10b981" }}>
+      {item.topic_order ? `${item.topic_order}. ` : ""}
+      {item.topic}
+    </Text>
+  </View>
+)}
+
+                      <Markdown
+                        style={{
+                          text: styles.answerText,
+                          strong: styles.answerText,
+                          em: styles.answerText,
+                        }}
+                      >
+                        {item.Answer}
+                      </Markdown>
+                    </View>
+                  </LinearGradient>
+                </View>
+
+                <Text style={styles.tapHint}>Tap to see question</Text>
+              </LinearGradient>
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+      </View>
+    </Animated.View>
+  );
+};
+
+const MemoizedFlashcardCard = React.memo(FlashcardCard);
+
+type CategoryType = 'unviewed' | 'viewed' | 'bookmarked';
+
+interface FlashcardFeedProps {
+  onScrollDirectionChange?: (isHidden: boolean) => void;
+}
+
+const FlashcardFeed: React.FC<FlashcardFeedProps> = ({ onScrollDirectionChange }) => {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
+  const [containersVisible, setContainersVisible] = useState(true);
+
+  useEffect(() => {
+    onScrollDirectionChange?.(!containersVisible && isMobile);
+  }, [containersVisible, isMobile, onScrollDirectionChange]);
+
+  const [selectedSubject, setSelectedSubject] = useState('Anatomy');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType>('unviewed');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showScrollControls, setShowScrollControls] = useState(false);
+  const [flashcards, setFlashcards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const isLoggedOut = userId === null;
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [flashcardStates, setFlashcardStates] = useState<Map<string, {
+    isViewed: boolean;
+    isBookmarked: boolean;
+  }>>(new Map());
+  const [initialStates, setInitialStates] = useState<Map<string, {
+    isViewed: boolean;
+    isBookmarked: boolean;
+  }>>(new Map());
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
+useEffect(() => {
+  if (!userId) return; // ⭐ do nothing when logged out
+
+  setFlashcards([]);
+  setOffset(0);
+  setHasMore(true);
+  fetchFlashcards(0);
+}, [userId, selectedSubject]);
+
+
+  useEffect(() => {
+    setInitialStates(new Map(flashcardStates));
+    setTimeout(() => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+      }
+    }, 100);
+  }, [selectedCategory]);
+
+  const initializeAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      setUserId(session.user.id);
+    } else {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (data?.user) {
+        setUserId(data.user.id);
+      }
+    }
+  };
+
+  const fetchFlashcards = async (newOffset = 0) => {
+    if (!userId || !selectedSubject) return;
+    if (newOffset > 0 && !hasMore) return;
+
+    setLoading(true);
+
+    const { data, error } = await supabase.rpc('get_flashcards_v2', {
+      p_subject: selectedSubject,
+      p_student_id: userId,
+      p_limit: 50,
+      p_offset: newOffset
+    });
+
+    setLoading(false);
+
+    if (error) {
+      console.error('RPC ERROR:', error);
+      return;
+    }
+
+    if (data.length === 0) {
+      setHasMore(false);
+      return;
+    }
+
+const formatted = data.map((row: any) => ({
+  id: row.flashcard_id,
+
+  Question:
+    row.flash_card_manu?.Question ??
+    row.flash_card_manu?.question ??
+    '',
+
+  Answer:
+    row.flash_card_manu?.Answer ??
+    row.flash_card_manu?.answer ??
+    '',
+
+  react_order_final: row.react_order_final,
+  maximum_value: row.maximum_value,
+
+  // view + bookmark state
+  isBookmarked: row.is_bookmarked,
+  isViewed: row.is_viewed,
+
+  // ✅ CBME metadata
+  chapter: row.chapter,
+  chapter_order: row.chapter_order,
+  topic: row.topic,
+  topic_order: row.topic_order,
+}));
+
+
+
+    if (newOffset === 0) {
+      setFlashcards(formatted);
+      const map = new Map();
+      data.forEach((row: any) => {
+        map.set(row.flashcard_id, {
+          isViewed: row.is_viewed,
+          isBookmarked: row.is_bookmarked
+        });
+      });
+      setFlashcardStates(map);
+      setInitialStates(new Map(map));
+    } else {
+      setFlashcards(prev => [...prev, ...formatted]);
+      setFlashcardStates(prev => {
+        const map = new Map(prev);
+        data.forEach((row: any) => {
+          map.set(row.flashcard_id, {
+            isViewed: row.is_viewed,
+            isBookmarked: row.is_bookmarked
+          });
+        });
+        return map;
+      });
+    }
+  };
+
+  const handleView = async (flashcardId: string, subject: string) => {
+    if (!userId) return;
+
+    await supabase.rpc('mark_flashcard_viewed', {
+      p_student_id: userId,
+      p_flashcard_id: flashcardId
+    });
+
+    setFlashcardStates((prev) => {
+      const map = new Map(prev);
+      const current = map.get(flashcardId) || { isViewed: false, isBookmarked: false };
+      map.set(flashcardId, { ...current, isViewed: true });
+      return map;
+    });
+  };
+
+  const handleBookmark = async (flashcardId: string, subject: string) => {
+    if (!userId) return;
+
+    const { data, error } = await supabase.rpc("toggle_flashcard_bookmark_v7", {
+      p_student_id: userId,
+      p_flashcard_id: flashcardId,
+    });
+    
+    console.log("Bookmark v7 result:", data, error);
+    
+    if (error) {
+      console.error("BOOKMARK RPC ERROR:", error);
+      return;
+    }
+    
+    const newState = data?.[0]?.out_is_bookmark ?? false;
+    
+    setFlashcardStates((prev) => {
+      const map = new Map(prev);
+      const current = map.get(flashcardId) || { isViewed: false, isBookmarked: false };
+      map.set(flashcardId, { ...current, isBookmarked: newState });
+      return map;
+    });
+  };
+
+  const getFlashcardsForSubject = () => flashcards;
+
+  const getFilteredFlashcards = () => {
+    const allFlashcards = getFlashcardsForSubject();
+
+    return allFlashcards.filter((card) => {
+      const state = initialStates.get(card.id) || { isViewed: false, isBookmarked: false };
+
+      switch (selectedCategory) {
+        case 'viewed':
+          return state.isViewed;
+        case 'unviewed':
+          return !state.isViewed;
+        case 'bookmarked':
+          return state.isBookmarked;
+        default:
+          return true;
+      }
+    });
+  };
+
+  const filteredFlashcards = getFilteredFlashcards();
+  const hasFlashcards = filteredFlashcards.length > 0;
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !loading) {
+      const newOffset = offset + 50;
+      setOffset(newOffset);
+      fetchFlashcards(newOffset);
+    }
+  }, [hasMore, loading, offset]);
+
+  const renderCard = useCallback(({ item, index }: { item: any; index: number }) => (
+    <MemoizedFlashcardCard
+      item={item}
+      index={index}
+      subject={selectedSubject}
+      isBookmarked={flashcardStates.get(item.id)?.isBookmarked || false}
+      onView={handleView}
+      onBookmark={handleBookmark}
+    />
+  ), [selectedSubject, flashcardStates, handleView, handleBookmark]);
+
+  return (
+    <View style={styles.container}>
+      {(containersVisible || !isMobile) && (
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subjectScrollContent}
+            style={styles.subjectScrollContainer}
+          >
+            {SUBJECTS.map((item) => (
+              <TouchableOpacity
+                key={item.subject}
+                style={[
+                  styles.subjectBubble,
+                  selectedSubject === item.subject && styles.subjectBubbleSelected,
+                ]}
+                onPress={() => {
+                  if (selectedSubject !== item.subject) {
+                    setSelectedCategory('unviewed');
+                  }
+                  setSelectedSubject(item.subject);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.subjectBubbleText,
+                    selectedSubject === item.subject && styles.subjectBubbleTextSelected,
+                  ]}
+                >
+                  {item.subject}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <View style={styles.categoryContainer}>
+          <TouchableOpacity
+            style={[
+              styles.categoryIcon,
+              selectedCategory === 'unviewed' && styles.categoryIconSelected,
+            ]}
+            onPress={() => setSelectedCategory('unviewed')}
+          >
+            <EyeOff
+              size={20}
+              color={selectedCategory === 'unviewed' ? '#ffffff' : '#10b981'}
+              strokeWidth={2}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.categoryIcon,
+              selectedCategory === 'viewed' && styles.categoryIconSelected,
+            ]}
+            onPress={() => setSelectedCategory('viewed')}
+          >
+            <Eye
+              size={20}
+              color={selectedCategory === 'viewed' ? '#ffffff' : '#10b981'}
+              strokeWidth={2}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.categoryIcon,
+              selectedCategory === 'bookmarked' && styles.categoryIconSelected,
+            ]}
+            onPress={() => setSelectedCategory('bookmarked')}
+          >
+            <Bookmark
+              size={20}
+              color={selectedCategory === 'bookmarked' ? '#ffffff' : '#10b981'}
+              strokeWidth={2}
+              fill={selectedCategory === 'bookmarked' ? '#ffffff' : 'transparent'}
+            />
+          </TouchableOpacity>
+        </View>
+        </View>
+      )}
+
+     {isLoggedOut ? (
+  <View style={styles.placeholderContainer}>
+    <Text style={styles.placeholderText}>
+      Please sign in to view flashcards.
+    </Text>
+  </View>
+) : hasFlashcards ? (
+  <FlatList
+    ref={flatListRef}
+    data={filteredFlashcards}
+    keyExtractor={(item) => item.id}
+    renderItem={renderCard}
+    contentContainerStyle={styles.listContent}
+    showsVerticalScrollIndicator={false}
+    initialNumToRender={6}
+    maxToRenderPerBatch={4}
+    windowSize={7}
+    updateCellsBatchingPeriod={60}
+    removeClippedSubviews={true}
+    onEndReached={loadMore}
+    onEndReachedThreshold={0.5}
+    onScroll={(event) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+
+      if (isMobile && offsetY > 10) {
+        if (containersVisible) {
+          setContainersVisible(false);
+        }
+      }
+
+      if (offsetY > 100) {
+        setShowScrollControls(true);
+      } else {
+        setShowScrollControls(false);
+      }
+    }}
+    scrollEventThrottle={16}
+    disableIntervalMomentum={true}
+    decelerationRate="fast"
+  />
+) : (
+  <View style={styles.placeholderContainer}>
+    <Text style={styles.placeholderText}>
+      {loading ? 'Loading flashcards...' : 'No flashcards available for this subject.'}
+    </Text>
+  </View>
+)}
+
+      {showScrollControls && (
+        <View style={styles.scrollControlsWrapper}>
+          <TouchableOpacity
+            style={styles.scrollBtn}
+            onPress={() =>
+              flatListRef?.current?.scrollToOffset({
+                offset: 0,
+                animated: true
+              })
+            }
+          >
+            <ArrowUp size={24} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.scrollBtn}
+            onPress={() =>
+              flatListRef?.current?.scrollToEnd({
+                animated: true
+              })
+            }
+          >
+            <ArrowDown size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isMobile && !containersVisible && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setContainersVisible(true)}
+        >
+          <Filter size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0d0d0d',
+  },
+  listContent: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  cardContainer: {
+    marginBottom: 48,
+  },
+  cardWrapper: {
+    position: 'relative',
+    flexDirection: 'row',
+  },
+  leftBorder: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: -2, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '-2px 0 12px rgba(59, 130, 246, 0.5)',
+      },
+    }),
+  },
+  leftBorderGradient: {
+    flex: 1,
+    width: '100%',
+  },
+  cardTouchable: {
+    flex: 1,
+    marginLeft: 16,
+    position: 'relative',
+  },
+  cardFace: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    overflow: 'hidden',
+    backfaceVisibility: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
+      },
+    }),
+  },
+  cardFront: {
+    zIndex: 2,
+  },
+  cardBack: {
+    zIndex: 1,
+  },
+  cardGradient: {
+    padding: 24,
+    paddingTop: 20,
+  },
+  topShine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  badge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+      },
+    }),
+  },
+  badgeLetter: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  badgeLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#888',
+    letterSpacing: 1.2,
+  },
+  textBorderContainer: {
+    marginBottom: 20,
+  },
+  textBorder: {
+    borderRadius: 12,
+    padding: 2,
+  },
+  textContent: {
+    backgroundColor: 'rgba(20, 20, 20, 0.8)',
+    borderRadius: 10,
+    padding: 18,
+  },
+  answerContainer: {},
+  answerBackground: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  },
+  questionText: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: '#eaeaea',
+  },
+  answerText: {
+    fontSize: 19,
+    lineHeight: 30,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  tapHint: {
+    fontSize: 13,
+    color: '#555',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  subjectScrollContainer: {
+    backgroundColor: '#0d0d0d',
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+    paddingTop: 60,
+    paddingBottom: 16,
+  },
+  subjectScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  subjectBubble: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#10b981',
+    backgroundColor: 'transparent',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subjectBubbleSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  subjectBubbleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  subjectBubbleTextSelected: {
+    color: '#ffffff',
+  },
+  placeholderContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#0d0d0d',
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  categoryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#10b981',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryIconSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#999',
+    marginRight: 12,
+  },
+  scrollControlsWrapper: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    alignItems: "center",
+    zIndex: 999,
+  },
+  scrollBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#10b981",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  fab: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#10b981",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+  },
+});
+
+export default FlashcardFeed;
