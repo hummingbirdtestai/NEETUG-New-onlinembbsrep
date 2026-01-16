@@ -116,34 +116,15 @@ const [selectedChapter, setSelectedChapter] = useState(initialChapter);
   const listRef = React.useRef<FlatList>(null);
 
 const subjects = [
-  // 1st MBBS
-  "Anatomy",
-  "Physiology",
-  "Biochemistry",
+  // Class 11
+  "Botany Class 11",
+  "Zoology Class 11",
+  "Chemistry Class 11",
 
-  // 2nd MBBS
-  "Microbiology",
-  "Pharmacology",
-  "Pathology",
-  "PSM",
-  "Forensic",
-
-  // 3rd MBBS – Part 1
-  "ENT",
-  "Ophthalmology",
-
-  // 3rd MBBS – Part 2 / Final
-  "General Medicine",
-  "General Surgery",
-  "Obstetrics",
-  "Gynecology",
-  "Pediatrics",
-  "Orthopaedics",
-  "Dermatology",
-  "Psychiatry",
-  "Anaesthesiology",
-  "Radiodiagnosis",
-  "Radiotherapy"
+  // Class 12
+  "Botany Class 12",
+  "Zoology Class 12",
+  "Chemistry Class 12"
 ];
 
 
