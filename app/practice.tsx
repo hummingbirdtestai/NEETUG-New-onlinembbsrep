@@ -25,7 +25,7 @@ export default function PracticeScreen() {
   const isMobile = width < 768;
   const [containersVisible, setContainersVisible] = useState(true);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState("Anatomy");
+  const [selectedSubject, setSelectedSubject] = useState("Botany Class 11");
   const [selectedCategory, setSelectedCategory] =
     useState<"all" | "bookmarked" | "wrong">("all");
 
@@ -107,7 +107,7 @@ const chaptersBySubject: Record<string, string[]> = {
 
   
 const initialChapter =
-  chaptersBySubject["Anatomy"]?.[0] ?? "";
+  chaptersBySubject["Botany Class 11"]?.[0] ?? "";
 const [selectedChapter, setSelectedChapter] = useState(initialChapter);
 
   const [userId, setUserId] = useState<string | null>(null);
